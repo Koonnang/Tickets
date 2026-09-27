@@ -9,7 +9,7 @@ const { spawn } = require('child_process');
 const FFMPEG = process.env.FFMPEG;
 const FPS = 30, FRAMES = 900;
 const root = __dirname;
-const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.woff2': 'font/woff2' };
+const types = { '.html': 'text/html', '.js': 'text/javascript', '.json': 'application/json', '.css': 'text/css', '.woff2': 'font/woff2', '.png': 'image/png' };
 
 const server = http.createServer((req, res) => {
   const p = path.join(root, decodeURIComponent(req.url.split('?')[0]));

@@ -122,19 +122,19 @@ def tick():
 # ---------- arrangement ----------
 # intro drone + word bells
 add(pad([38, 45, 50], 3.9, 600), 0.0, gain=0.55)
-for t, m in [(0.55, 74), (1.17, 77), (1.79, 81)]:
-    add(bell(m), t, pan=[-0.4, 0, 0.4][[74, 77, 81].index(m)], gain=0.22)
+for t, m in [(0.9, 74), (1.1, 78), (1.35, 81)]:
+    add(bell(m), t, pan=[-0.4, 0, 0.4][[74, 78, 81].index(m)], gain=0.22)
 add(riser(1.0, 400, 6000), 2.3, gain=0.18)
 
 # chord progression per bar: Dm, Bb, F, C (with bass root)
-prog = [([50, 53, 57, 62], 38), ([46, 50, 53, 58], 34), ([45, 48, 53, 57], 41), ([43, 48, 52, 55], 36)]
+prog = [([50, 54, 57, 62], 38), ([49, 52, 57, 61], 33), ([50, 54, 59, 62], 35), ([50, 55, 59, 62], 31)]  # D A Bm G
 bar_i = 0
 t = T0
 while t < 24.6 - 0.01:
     chord, root = prog[bar_i % 4]
     dur = min(BAR, 24.6 - t)
     section = 0 if t < 8.3 else 1 if t < 18.5 else 2
-    add(pad(chord, dur + 0.8, [900, 1600, 2400][section]), t, gain=[0.35, 0.42, 0.5][section])
+    add(pad(chord, dur + 0.8, [1400, 2200, 3000][section]), t, gain=[0.35, 0.42, 0.5][section])
     # bass: 8ths pumping
     for k in range(8):
         tt = t + k * BEAT / 2

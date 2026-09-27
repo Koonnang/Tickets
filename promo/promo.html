@@ -29,7 +29,7 @@ const G = {
   hero: [C.sky, C.mid, C.indigo],
   teal: ['#75C5B7', '#5A95A0', '#3A6581'],
   green: ['#5DB9F3', '#16633F', '#153A28'],
-  violet: ['#74B1EE', '#5152A3', '#3B3486'],
+  sage: ['#AACD8E', '#7AA674', '#4B7F58'],
 };
 const DISPLAY = '"Inter Tight", Inter, sans-serif';
 const SANS = 'Inter, "Liberation Sans", sans-serif';
@@ -210,16 +210,16 @@ function s1(t) {
   // right-lower white area: small caption
   ctx.globalAlpha = eOut(prog(t, 1.9, 2.4));
   font(24, SANS, 400); ctx.fillStyle = C.gray; ctx.textAlign = 'left'; track(.5);
-  ctx.fillText('Strategic Advisory  ·  Restructuring & Special Situations  ·  PJT Park Hill', 780, 930);
+  ctx.fillText('Strategic Advisory  ·  Restructuring & Special Situations  ·  Fund Advisory', 780, 930);
   track(0);
   ctx.restore();
 }
 
 // ================= S2: One Firm. Many Capabilities. (3.3 – 8.3) =================
 const TILES = [
-  { pal: G.teal, t: 'Strategic Advisory', sub: 'Innovative, differentiated advice with high-touch service' },
-  { pal: G.green, t: 'Restructuring & Special Situations', sub: 'IFR Restructuring Advisor of the Year, four years running' },
-  { pal: G.violet, t: 'PJT Park Hill', sub: 'Private capital advisory since 2005' },
+  { pal: G.teal, t: 'Strategic Advisory', sub: 'Differentiated advice, high-touch service' },
+  { pal: G.green, t: 'Restructuring & Special Situations', sub: "IFR Restructuring Advisor of the Year, '20–'23" },
+  { pal: G.sage, t: 'Fund Advisory', sub: 'PJT Park Hill' },
 ];
 const TX = [140, 700, 1260], TY = 470, TW = 520, TH = 360;
 function s2(t) {
@@ -248,7 +248,7 @@ function s2(t) {
     let x = TX[i], y = TY + (1 - p) * 140, w = TW, h = TH;
     let a = isPH ? 1 : fadeOthers * (1 - exp);
     if (isPH && exp > 0) {             // Park Hill tile grows into the next scene's panel
-      x = lerp(x, 0, exp); y = lerp(y, 0, exp); w = lerp(w, 1152, exp); h = lerp(h, H, exp);
+      x = lerp(x, 1000, exp); y = lerp(y, 0, exp); w = lerp(w, 480, exp); h = lerp(h, H, exp);
     }
     ctx.save(); ctx.globalAlpha = a;
     // reveal tile with vertical wipe
@@ -280,27 +280,29 @@ function gradText(str, x, y, stops) {
 function s3(t) {
   if (t < 8.2 || t > 18.7) return;
 
-  // 3a — title: violet tile panel + painting photo (8.3 – 10.3)
+  // 3a — title: copy on white, Fund Advisory sage tile + painting photo (8.3 – 10.3)
   if (t < 10.45) {
     const out = eIO(prog(t, 10.0, 10.4));
     ctx.save();
     ctx.translate(-out * W, 0);
-    quadTile(0, 0, 1152, H, G.violet, Math.sin(t * .8 + 2));
+    quadTile(1000, 0, 480, H, G.sage, Math.sin(t * .8 + 2));
     if (IMG.paint) {
       const pp = eQuint(prog(t, 8.3, 9.0));
-      ctx.save(); ctx.beginPath(); ctx.rect(1152 + (1 - pp) * 768, 0, 768, H); ctx.clip();
-      cover(IMG.paint, 1152, 0, 768, H, 1.04 + (t - 8.3) * .015, .5, .5);
+      ctx.save(); ctx.beginPath(); ctx.rect(1480 + (1 - pp) * 440, 0, 440, H); ctx.clip();
+      cover(IMG.paint, 1480, 0, 440, H, 1.04 + (t - 8.3) * .015, .35, .5);
       ctx.restore();
     }
-    bracketLabel('Since 2005', 120, 250, t, 8.45, C.white, 26);
-    font(170, DISPLAY, 300); ctx.fillStyle = C.white; track(-5);
-    revealWords('PJT Park Hill', 110, 560, t, 8.55, .1, .6);
+    bracketLabel('Fund Advisory  ·  Since 2005', 120, 250, t, 8.45);
+    font(140, DISPLAY, 300); ctx.fillStyle = C.ink; track(-4);
+    revealWords('PJT Park Hill', 110, 530, t, 8.55, .1, .6);
     track(0);
-    font(36, SANS, 300); ctx.fillStyle = 'rgba(255,255,255,.92)';
-    ctx.globalAlpha = eOut(prog(t, 9.1, 9.6));
-    ctx.fillText('Advising private capital across its entire lifecycle', 120, 660);
+    font(32, SANS, 300); ctx.fillStyle = C.body;
+    ['A premier advisor to alternative asset managers,', 'delivering investor access and capital intelligence', 'across asset classes.'].forEach((l, i) => {
+      ctx.globalAlpha = eOut(prog(t, 9.0 + i * .12, 9.5 + i * .12));
+      ctx.fillText(l, 120, 630 + i * 48);
+    });
     ctx.globalAlpha = 1;
-    logo(120, 880, 70, 'rgba(255,255,255,.9)', eOut(prog(t, 9.0, 9.6)));
+    logo(120, 900, 60, C.ruleA, eOut(prog(t, 9.2, 9.8)));
     ctx.restore();
   }
 

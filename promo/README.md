@@ -3,15 +3,15 @@
 `pjt-park-hill-promo.mp4`: 1920×1080, 30 fps, H.264 + AAC stereo, exactly 30.0 s, -14 LUFS.
 `poster.png` is the end-card still, for use as a thumbnail.
 
-The visual language is taken from pjtpartners.com: white pages, light grotesk headlines (Inter Tight 300 stands in for the house face), the indigo-to-sky hero gradient, quadrant gradient tiles (teal = Strategic Advisory, green = Restructuring), bracket-corner labels, ↳ arrows, and the site's own office photography (`v2/*.png`, cropped from site screenshots). The PJT monogram is a vector trace of the site header mark (`logo()` in `promo.html`).
+The visual language is taken from pjtpartners.com: white pages, light grotesk headlines (Inter Tight 300 stands in for the house face), the indigo-to-sky hero gradient, quadrant gradient tiles (teal = Strategic Advisory, green = Restructuring, sage = Fund Advisory / PJT Park Hill), bracket-corner labels, ↳ arrows, and the site's own office photography (`v2/*.png`, cropped from site screenshots). The PJT monogram is a vector trace of the site header mark (`logo()` in `promo.html`).
 
 ## Storyboard
 
 | Time | Scene | Sound |
 |---|---|---|
 | 0.0–3.3 | Site-style hero: gradient panels wipe in over the hallway photo, the monogram draws on, and the line "PJT is a next-generation global investment bank where advice is the main event" appears | Drone, bells, riser |
-| 3.3–8.3 | *One Firm. Many Capabilities.* Three gradient tiles appear. Park Hill stays lit while the other two fade, then its tile expands to fill the frame | Impact, pulse and kick come in |
-| 8.3–10.3 | **PJT Park Hill**, "Since 2005", with the violet tile beside the painting photo | Impact, full groove |
+| 3.3–8.3 | *One Firm. Many Capabilities.* Three gradient tiles appear. The Fund Advisory (sage) tile stays lit while the other two fade, then its tile expands to fill the frame | Impact, pulse and kick come in |
+| 8.3–10.3 | **PJT Park Hill**: the site's Fund Advisory copy, sage tile and painting photo | Impact, full groove |
 | 10.3–12.9 | **$565B+** raised across 540+ primary funds, next to the hallway photo | Counter ticks |
 | 12.9–15.4 | Secondaries: **$140B+** LP portfolio sales, **$155B+** GP-led, next to the lounge photo | Counter ticks |
 | 15.4–18.5 | **5,500+** investor relationships as a network of dots on the hero gradient; strategies scroll past with ↳ arrows | Counter ticks |

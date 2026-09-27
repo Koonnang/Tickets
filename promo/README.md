@@ -10,7 +10,7 @@ The visual language is taken from pjtpartners.com: white pages, light grotesk he
 | Time | Scene | Sound |
 |---|---|---|
 | 0.0–3.3 | Site-style hero: gradient panels wipe in over the hallway photo, the monogram draws on, and the line "PJT is a next-generation global investment bank where advice is the main event" appears | Drone, bells, riser |
-| 3.3–8.3 | *One Firm. Many Capabilities.* Three gradient tiles appear. The Fund Advisory (sage) tile stays lit while the other two fade, then its tile expands to fill the frame | Impact, pulse and kick come in |
+| 3.3–8.3 | *One Firm. Many Capabilities.* Three gradient tiles appear. The Fund Advisory (sage) tile stays lit while the other two fade, then it grows into the tall panel of the next scene | Impact, pulse and kick come in |
 | 8.3–10.3 | **PJT Park Hill**: the site's Fund Advisory copy, sage tile and painting photo | Impact, full groove |
 | 10.3–12.9 | **$565B+** raised across 540+ primary funds, next to the hallway photo | Counter ticks |
 | 12.9–15.4 | Secondaries: **$140B+** LP portfolio sales, **$155B+** GP-led, next to the lounge photo | Counter ticks |

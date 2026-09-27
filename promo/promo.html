@@ -1,0 +1,635 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>PJT Park Hill Promo</title>
+<link rel="stylesheet" href="fonts/local.css">
+<style>
+  html,body{margin:0;background:#000;overflow:hidden}
+  canvas{display:block}
+</style>
+<script src="node_modules/d3-array/dist/d3-array.min.js"></script>
+<script src="node_modules/d3-geo/dist/d3-geo.min.js"></script>
+<script src="node_modules/topojson-client/dist/topojson-client.min.js"></script>
+</head>
+<body>
+<canvas id="c" width="1920" height="1080"></canvas>
+<script>
+const W = 1920, H = 1080, DUR = 30;
+const cv = document.getElementById('c');
+const ctx = cv.getContext('2d');
+
+const C = {
+  bg0: '#040B17', bg1: '#0A1B33', navy: '#12305A',
+  gold: '#CFAE6B', goldHi: '#F0D9A4', ink: '#F5F2EA', muted: '#8EA2BE', dim: '#51647F'
+};
+const SERIF = '"Playfair Display", Georgia, serif';
+const SANS = 'Inter, "Liberation Sans", sans-serif';
+
+// ---------- math helpers ----------
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, t) => a + (b - a) * t;
+const prog = (t, a, b) => clamp((t - a) / (b - a));
+const eOut = x => 1 - Math.pow(1 - x, 3);
+const eIn = x => x * x * x;
+const eIO = x => x < .5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2;
+const eExpo = x => x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+const eBack = x => { const c1 = 1.4, c3 = c1 + 1; return 1 + c3 * Math.pow(x - 1, 3) + c1 * Math.pow(x - 1, 2); };
+// fade in over [a,a+i], hold, fade out over [b-o,b]
+const win = (t, a, b, i = .5, o = .5) => Math.min(eOut(prog(t, a, a + i)), 1 - eIn(prog(t, b - o, b)));
+
+function rng(seed) { let s = seed >>> 0; return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 4294967296; }; }
+
+// ---------- text helpers ----------
+function font(size, family = SANS, weight = 400, style = 'normal') {
+  ctx.font = `${style} ${weight} ${size}px ${family}`;
+}
+function spaced(str, x, y, tracking, align = 'center') {
+  // draw text with letter spacing
+  ctx.letterSpacing = tracking + 'px';
+  ctx.textAlign = align;
+  // letterSpacing adds trailing space after last glyph; compensate for centered text
+  const dx = align === 'center' ? tracking / 2 : align === 'right' ? tracking : 0;
+  ctx.fillText(str, x + dx, y);
+  ctx.letterSpacing = '0px';
+}
+function textW(str, tracking = 0) {
+  ctx.letterSpacing = tracking + 'px';
+  const w = ctx.measureText(str).width;
+  ctx.letterSpacing = '0px';
+  return w;
+}
+// per-character reveal: each char rises + fades in, staggered
+function revealChars(str, x, y, t, start, stagger, dur, rise = 40, align = 'center', tracking = 0) {
+  const total = textW(str, tracking);
+  let cx = align === 'center' ? x - total / 2 : align === 'right' ? x - total : x;
+  ctx.textAlign = 'left';
+  ctx.letterSpacing = '0px';
+  for (let i = 0; i < str.length; i++) {
+    const ch = str[i];
+    const w = ctx.measureText(ch).width;
+    const p = eOut(prog(t, start + i * stagger, start + i * stagger + dur));
+    if (p > 0) {
+      ctx.save();
+      ctx.globalAlpha *= p;
+      ctx.fillText(ch, cx, y + (1 - p) * rise);
+      ctx.restore();
+    }
+    cx += w + tracking;
+  }
+}
+
+// ---------- background ----------
+const grainCanvas = document.createElement('canvas');
+grainCanvas.width = 512; grainCanvas.height = 512;
+(() => {
+  const g = grainCanvas.getContext('2d');
+  const img = g.createImageData(512, 512);
+  const r = rng(7);
+  for (let i = 0; i < img.data.length; i += 4) {
+    const v = r() * 255;
+    img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+})();
+
+const motes = (() => {
+  const r = rng(42), a = [];
+  for (let i = 0; i < 140; i++) a.push({ x: r() * W, y: r() * H, z: .2 + r() * .8, ph: r() * 6.28 });
+  return a;
+})();
+
+function background(t) {
+  const g = ctx.createRadialGradient(W * .5, H * .42, 50, W * .5, H * .5, W * .75);
+  g.addColorStop(0, C.bg1); g.addColorStop(1, C.bg0);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+
+  // slow-moving fine grid (financial chart paper)
+  ctx.save();
+  ctx.globalAlpha = .06;
+  ctx.strokeStyle = C.muted; ctx.lineWidth = 1;
+  const off = (t * 12) % 80;
+  ctx.beginPath();
+  for (let x = -80 + off; x < W + 80; x += 80) { ctx.moveTo(x, 0); ctx.lineTo(x, H); }
+  for (let y = -80 + off * .5; y < H + 80; y += 80) { ctx.moveTo(0, y); ctx.lineTo(W, y); }
+  ctx.stroke();
+  ctx.restore();
+
+  // drifting gold motes (parallax)
+  ctx.save();
+  for (const m of motes) {
+    const x = (m.x + t * 18 * m.z) % W;
+    const y = (m.y - t * 8 * m.z + H) % H;
+    const a = (.15 + .25 * Math.sin(t * 1.3 + m.ph) ** 2) * m.z;
+    ctx.globalAlpha = a;
+    ctx.fillStyle = C.goldHi;
+    ctx.beginPath(); ctx.arc(x, y, 1 + m.z * 1.6, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+function postFX(t, frame) {
+  // vignette
+  const v = ctx.createRadialGradient(W / 2, H / 2, H * .35, W / 2, H / 2, W * .72);
+  v.addColorStop(0, 'rgba(0,0,0,0)'); v.addColorStop(1, 'rgba(0,0,0,.65)');
+  ctx.fillStyle = v; ctx.fillRect(0, 0, W, H);
+  // film grain
+  ctx.save();
+  ctx.globalAlpha = .045;
+  ctx.globalCompositeOperation = 'overlay';
+  const ox = (frame * 173) % 512, oy = (frame * 97) % 512;
+  ctx.fillStyle = ctx.createPattern(grainCanvas, 'repeat');
+  ctx.translate(-ox, -oy);
+  ctx.fillRect(ox, oy, W, H);
+  ctx.restore();
+  // fade from/to black
+  const blk = Math.max(1 - prog(t, 0, .5), prog(t, 29.25, 30));
+  if (blk > 0) { ctx.fillStyle = `rgba(0,0,0,${blk})`; ctx.fillRect(0, 0, W, H); }
+}
+
+function goldRule(cx, y, halfW, p, alpha = 1) {
+  if (p <= 0) return;
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  const g = ctx.createLinearGradient(cx - halfW, 0, cx + halfW, 0);
+  g.addColorStop(0, 'rgba(207,174,107,0)'); g.addColorStop(.5, C.goldHi); g.addColorStop(1, 'rgba(207,174,107,0)');
+  ctx.fillStyle = g;
+  ctx.fillRect(cx - halfW * p, y - 1, halfW * 2 * p, 2);
+  ctx.restore();
+}
+
+function glowText(fn, blur = 30, color = 'rgba(240,217,164,.45)') {
+  ctx.save(); ctx.shadowColor = color; ctx.shadowBlur = blur; fn(); ctx.restore();
+}
+
+// ================= SCENE 1: cold open (0 – 3.3) =================
+function scene1(t) {
+  if (t > 3.4) return;
+  const out = eIn(prog(t, 2.75, 3.3));
+  goldRule(W / 2, 560, 620, eExpo(prog(t, .2, 1.1)), 1 - out);
+  const words = ['Capital.', 'Counsel.', 'Conviction.'];
+  const xs = [W / 2 - 520, W / 2, W / 2 + 540];
+  font(96, SERIF, 400, 'italic');
+  words.forEach((w, i) => {
+    const s = .55 + i * .62;
+    const p = eOut(prog(t, s, s + .55));
+    if (p <= 0) return;
+    ctx.save();
+    ctx.globalAlpha = p * (1 - out);
+    ctx.fillStyle = i === 2 ? C.goldHi : C.ink;
+    ctx.textAlign = 'center';
+    const y = 520 + (1 - p) * 50 - out * 60;
+    if (i === 2) glowText(() => ctx.fillText(w, xs[i], y), 40);
+    else ctx.fillText(w, xs[i], y);
+    ctx.restore();
+  });
+  font(22, SANS, 500);
+  ctx.save();
+  ctx.globalAlpha = win(t, 2.1, 3.3, .5, .5) * .9;
+  ctx.fillStyle = C.muted;
+  spaced('THE PRIVATE CAPITAL ADVISORY BUSINESS OF PJT PARTNERS', W / 2, 640, 6);
+  ctx.restore();
+}
+
+// ================= SCENE 2: PJT Partners + pillars (3.3 – 8.3) =================
+function scene2(t) {
+  if (t < 3.2 || t > 8.4) return;
+  const out = eIn(prog(t, 7.75, 8.3));
+  ctx.save();
+  ctx.globalAlpha = 1 - out;
+
+  // wordmark, scale settles from 1.08 -> 1
+  const s = lerp(1.08, 1, eOut(prog(t, 3.3, 5)));
+  const lift = lerp(0, -150, eIO(prog(t, 4.6, 5.4)));
+  ctx.save();
+  ctx.translate(W / 2, 470 + lift); ctx.scale(s, s);
+  font(150, SERIF, 600);
+  ctx.fillStyle = C.ink;
+  revealChars('PJT Partners', 0, 0, t, 3.35, .045, .6, 60, 'center', 2);
+  ctx.restore();
+
+  goldRule(W / 2, 520 + lift, 360, eExpo(prog(t, 3.9, 4.7)));
+  font(24, SANS, 500);
+  ctx.fillStyle = C.muted;
+  ctx.globalAlpha = (1 - out) * eOut(prog(t, 4.1, 4.7));
+  spaced('A GLOBAL, ADVISORY-FOCUSED INVESTMENT BANK', W / 2, 575 + lift, 7);
+  ctx.globalAlpha = 1 - out;
+
+  // three pillars
+  const pillars = [
+    ['Strategic', 'Advisory', 'Counsel on defining transactions'],
+    ['Restructuring &', 'Special Situations', 'IFR Restructuring Advisor of the Year, 2020–23'],
+    ['PJT', 'Park Hill', 'Private capital advisory since 2005'],
+  ];
+  const pw = 480, gap = 60, x0 = W / 2 - (pw * 3 + gap * 2) / 2;
+  const hl = eIO(prog(t, 6.9, 7.5)); // highlight Park Hill
+  pillars.forEach((p, i) => {
+    const st = 5.1 + i * .22;
+    const a = eOut(prog(t, st, st + .6));
+    if (a <= 0) return;
+    const x = x0 + i * (pw + gap);
+    const y = 610 + (1 - a) * 60;
+    const isPH = i === 2;
+    const focus = isPH ? 1 : 1 - hl * .7;
+    ctx.save();
+    ctx.globalAlpha = (1 - out) * a * focus;
+    // card
+    ctx.fillStyle = isPH ? `rgba(207,174,107,${.04 + hl * .1})` : 'rgba(255,255,255,.025)';
+    ctx.fillRect(x, y, pw, 250);
+    ctx.fillStyle = isPH && hl > 0 ? C.goldHi : C.gold;
+    ctx.fillRect(x, y, pw * eExpo(prog(t, st + .1, st + .8)), 3);
+    ctx.fillStyle = C.dim;
+    font(20, SANS, 600);
+    ctx.textAlign = 'left';
+    spaced('0' + (i + 1), x + 36, y + 58, 3, 'left');
+    ctx.fillStyle = isPH && hl > 0 ? C.goldHi : C.ink;
+    font(46, SERIF, 400);
+    ctx.fillText(p[0], x + 36, y + 122);
+    ctx.fillText(p[1], x + 36, y + 176);
+    ctx.fillStyle = C.muted;
+    font(21, SANS, 400);
+    ctx.fillText(p[2], x + 36, y + 222);
+    ctx.restore();
+  });
+  ctx.restore();
+}
+
+// ================= SCENE 3: Park Hill + stats (8.3 – 18.6) =================
+function counter(val, p, decimals = 0) {
+  const v = val * eOut(p);
+  return v.toLocaleString('en-US', { maximumFractionDigits: decimals, minimumFractionDigits: decimals });
+}
+
+// faint rising growth chart for background texture
+const chartPts = (() => {
+  const r = rng(11), pts = []; let v = .05;
+  for (let i = 0; i <= 60; i++) { v += .012 + r() * .02 - (r() < .15 ? .03 : 0); pts.push(Math.max(.03, v)); }
+  const mx = Math.max(...pts); return pts.map(p => p / mx);
+})();
+function growthChart(t, a, b, alpha) {
+  const p = eIO(prog(t, a, b));
+  if (p <= 0 || alpha <= 0) return;
+  const x0 = 120, x1 = W - 120, yb = 1000, hgt = 560;
+  const n = Math.floor(p * (chartPts.length - 1));
+  const frac = p * (chartPts.length - 1) - n;
+  const pt = i => [lerp(x0, x1, i / (chartPts.length - 1)), yb - chartPts[i] * hgt];
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  ctx.beginPath(); ctx.moveTo(x0, yb);
+  let last;
+  for (let i = 0; i <= n; i++) { last = pt(i); ctx.lineTo(...last); }
+  if (n < chartPts.length - 1) {
+    const A = pt(n), B = pt(n + 1);
+    last = [lerp(A[0], B[0], frac), lerp(A[1], B[1], frac)]; ctx.lineTo(...last);
+  }
+  ctx.lineTo(last[0], yb); ctx.closePath();
+  const g = ctx.createLinearGradient(0, yb - hgt, 0, yb);
+  g.addColorStop(0, 'rgba(207,174,107,.22)'); g.addColorStop(1, 'rgba(207,174,107,0)');
+  ctx.fillStyle = g; ctx.fill();
+  ctx.beginPath();
+  for (let i = 0; i <= n; i++) { const q = pt(i); i ? ctx.lineTo(...q) : ctx.moveTo(...q); }
+  ctx.lineTo(...last);
+  ctx.strokeStyle = 'rgba(240,217,164,.55)'; ctx.lineWidth = 2; ctx.stroke();
+  ctx.fillStyle = C.goldHi; ctx.shadowColor = C.goldHi; ctx.shadowBlur = 20;
+  ctx.beginPath(); ctx.arc(last[0], last[1], 5, 0, 6.283); ctx.fill();
+  ctx.restore();
+}
+
+function scene3(t) {
+  if (t < 8.1 || t > 18.8) return;
+
+  // --- 3a: title card (8.3 – 10.3)
+  {
+    const a = win(t, 8.3, 10.35, .6, .45);
+    if (a > 0) {
+      ctx.save();
+      ctx.globalAlpha = a;
+      font(26, SANS, 500); ctx.fillStyle = C.gold;
+      spaced('SINCE 2005', W / 2, 395, 12);
+      const s = lerp(1.12, 1, eOut(prog(t, 8.3, 9.6))) + prog(t, 9.6, 10.35) * .03;
+      ctx.save(); ctx.translate(W / 2, 545); ctx.scale(s, s);
+      font(170, SERIF, 600); ctx.fillStyle = C.ink; ctx.textAlign = 'center';
+      glowText(() => { ctx.fillText('PJT Park Hill', 0, 0); }, 50, 'rgba(240,217,164,.25)');
+      ctx.restore();
+      goldRule(W / 2, 600, 420, eExpo(prog(t, 8.6, 9.4)));
+      font(40, SERIF, 400, 'italic'); ctx.fillStyle = C.muted; ctx.textAlign = 'center';
+      ctx.globalAlpha = a * eOut(prog(t, 8.9, 9.5));
+      ctx.fillText('Advising private capital across its entire lifecycle', W / 2, 680);
+      ctx.restore();
+    }
+  }
+
+  growthChart(t, 10.2, 12.4, win(t, 10.2, 12.9, .4, .5) * .9);
+
+  // --- 3b: hero stat (10.3 – 12.9)
+  {
+    const a = win(t, 10.3, 12.9, .35, .45);
+    if (a > 0) {
+      ctx.save();
+      ctx.globalAlpha = a;
+      const p = prog(t, 10.35, 12.0);
+      font(240, SANS, 300); ctx.letterSpacing = '-8px'; ctx.fillStyle = C.goldHi; ctx.textAlign = 'center';
+      const y = 560 - eIn(prog(t, 12.45, 12.9)) * 40;
+      glowText(() => ctx.fillText('$' + counter(565, p) + 'B+', W / 2, y), 60, 'rgba(240,217,164,.35)');
+      font(28, SANS, 500); ctx.fillStyle = C.ink;
+      spaced('CAPITAL RAISED ACROSS 540+ PRIMARY FUNDS', W / 2, y + 95, 8);
+      ctx.restore();
+    }
+  }
+
+  // --- 3c: secondaries split (12.9 – 15.4)
+  {
+    const a = win(t, 12.9, 15.45, .35, .45);
+    if (a > 0) {
+      ctx.save();
+      ctx.globalAlpha = a;
+      font(24, SANS, 500); ctx.fillStyle = C.gold;
+      spaced('SECONDARIES ADVISED SINCE 2010', W / 2, 330, 10);
+      const items = [[140, 'LP portfolio sales'], [155, 'GP-led transactions']];
+      items.forEach(([v, lbl], i) => {
+        const st = 13.0 + i * .2;
+        const p = prog(t, st, st + 1.4);
+        const x = W / 2 + (i ? 1 : -1) * 400;
+        const slide = (1 - eOut(prog(t, st, st + .6))) * (i ? 120 : -120);
+        font(180, SANS, 300); ctx.letterSpacing = '-6px'; ctx.fillStyle = C.ink; ctx.textAlign = 'center';
+        ctx.fillText('$' + counter(v, p) + 'B+', x + slide, 590);
+        font(36, SERIF, 400, 'italic'); ctx.fillStyle = C.muted;
+        ctx.letterSpacing = '0px'; ctx.fillText(lbl, x + slide, 665);
+      });
+      // center divider
+      ctx.fillStyle = C.gold;
+      const dh = 300 * eExpo(prog(t, 13.1, 13.9));
+      ctx.fillRect(W / 2 - 1, 500 - dh / 2, 2, dh);
+      ctx.restore();
+    }
+  }
+
+  // --- 3d: investor network (15.4 – 18.6)
+  {
+    const a = win(t, 15.4, 18.65, .4, .5);
+    if (a > 0) {
+      ctx.save();
+      ctx.globalAlpha = a;
+      networkDots(t);
+      const p = prog(t, 15.5, 16.9);
+      font(210, SANS, 300); ctx.letterSpacing = '-7px'; ctx.fillStyle = C.ink; ctx.textAlign = 'center';
+      glowText(() => ctx.fillText(counter(5500, p) + '+', W / 2, 520), 40, 'rgba(4,11,23,.9)'); ctx.letterSpacing = '0px';
+      font(28, SANS, 500); ctx.fillStyle = C.gold;
+      spaced('INVESTOR RELATIONSHIPS WORLDWIDE', W / 2, 600, 8);
+      // strategies marquee
+      const strat = ['Private Equity', 'Real Estate', 'Private Credit', 'Infrastructure', 'Hedge Funds', 'Secondaries', 'Co-Investment', 'Continuation Vehicles'];
+      font(34, SERIF, 400, 'italic');
+      const line = strat.join('   ·   ') + '   ·   ';
+      const lw = ctx.measureText(line).width;
+      const mx = -((t - 15.4) * 160) % lw;
+      ctx.globalAlpha = a * eOut(prog(t, 16.2, 16.8)) * .85;
+      ctx.fillStyle = C.muted; ctx.textAlign = 'left';
+      for (let x = mx; x < W; x += lw) ctx.fillText(line, x, 820);
+      ctx.fillStyle = 'rgba(207,174,107,.35)';
+      ctx.fillRect(0, 760, W, 1); ctx.fillRect(0, 850, W, 1);
+      ctx.restore();
+    }
+  }
+}
+
+// constellation of investor dots converging to a network
+const netDots = (() => {
+  const r = rng(99), a = [];
+  for (let i = 0; i < 260; i++) {
+    const ang = r() * 6.283, rad = 260 + r() * 700;
+    a.push({ sx: W / 2 + Math.cos(ang) * 1400, sy: H / 2 + Math.sin(ang) * 900,
+             x: W / 2 + Math.cos(ang) * rad * 1.3, y: 470 + Math.sin(ang) * rad * .55, d: r() * .8, ph: r() * 6.28 });
+  }
+  return a;
+})();
+function networkDots(t) {
+  ctx.save();
+  const pts = netDots.map(d => {
+    const p = eOut(prog(t, 15.4 + d.d * .6, 16.6 + d.d * .6));
+    return [lerp(d.sx, d.x, p), lerp(d.sy, d.y, p) + Math.sin(t * 1.5 + d.ph) * 4, p];
+  });
+  ctx.strokeStyle = 'rgba(207,174,107,.10)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i = 0; i < pts.length; i++) {
+    for (let j = i + 1; j < pts.length; j += 7) {
+      const dx = pts[i][0] - pts[j][0], dy = pts[i][1] - pts[j][1];
+      if (dx * dx + dy * dy < 170 * 170) { ctx.moveTo(pts[i][0], pts[i][1]); ctx.lineTo(pts[j][0], pts[j][1]); }
+    }
+  }
+  ctx.stroke();
+  for (const [x, y, p] of pts) {
+    ctx.globalAlpha = .7 * p;
+    ctx.fillStyle = C.goldHi;
+    ctx.beginPath(); ctx.arc(x, y, 2.2, 0, 6.283); ctx.fill();
+  }
+  ctx.restore();
+}
+
+// ================= SCENE 4: globe (18.6 – 24.8) =================
+let landDots = [];
+function buildGlobe() {
+  const topo = window.__LAND__;
+  const land = topojson.feature(topo, topo.objects.land);
+  const step = 1.6;
+  for (let lat = -58; lat <= 80; lat += step) {
+    const lonStep = step / Math.max(.25, Math.cos(lat * Math.PI / 180));
+    for (let lon = -180; lon < 180; lon += lonStep) {
+      if (d3.geoContains(land, [lon, lat])) landDots.push([lon, lat]);
+    }
+  }
+}
+const cities = [
+  { n: 'New York', c: [-74.0, 40.7], t: 19.0 },
+  { n: 'London', c: [-0.13, 51.5], t: 19.6 },
+  { n: 'Paris', c: [2.35, 48.86], t: 19.9, small: 1 },
+  { n: 'Madrid', c: [-3.7, 40.4], t: 20.1, small: 1 },
+  { n: 'Hong Kong', c: [114.17, 22.3], t: 21.3, hub: 1 },
+  { n: 'Tokyo', c: [139.7, 35.7], t: 21.8 },
+];
+const arcs = [[0, 1, 19.3], [1, 4, 20.3], [4, 5, 21.7]];
+
+function scene4(t) {
+  if (t < 18.4 || t > 25.0) return;
+  const a = win(t, 18.5, 24.9, .6, .55);
+  const R = 400 * lerp(.85, 1, eOut(prog(t, 18.5, 19.6))) * (1 + eIn(prog(t, 24.3, 24.9)) * .25);
+  const cx = 1240, cy = 560;
+  // rotate from NY-ish to HK and settle
+  const lon = lerp(40, -118, eIO(prog(t, 18.5, 22.6)));
+  const tilt = lerp(-28, -22, eIO(prog(t, 18.5, 22.6)));
+  const proj = d3.geoOrthographic().scale(R).translate([cx, cy]).rotate([lon, tilt]).clipAngle(90);
+  const path = d3.geoPath(proj, ctx);
+  ctx.save();
+  ctx.globalAlpha = a;
+  // atmosphere glow
+  const g = ctx.createRadialGradient(cx, cy, R * .9, cx, cy, R * 1.25);
+  g.addColorStop(0, 'rgba(207,174,107,.18)'); g.addColorStop(1, 'rgba(207,174,107,0)');
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, R * 1.25, 0, 6.283); ctx.fill();
+  // sphere body
+  const sg = ctx.createRadialGradient(cx - R * .35, cy - R * .4, R * .1, cx, cy, R);
+  sg.addColorStop(0, '#16345F'); sg.addColorStop(1, '#07142A');
+  ctx.fillStyle = sg; ctx.beginPath(); ctx.arc(cx, cy, R, 0, 6.283); ctx.fill();
+  ctx.strokeStyle = 'rgba(207,174,107,.35)'; ctx.lineWidth = 1.5; ctx.stroke();
+  // graticule
+  ctx.beginPath(); path(d3.geoGraticule10());
+  ctx.strokeStyle = 'rgba(142,162,190,.08)'; ctx.lineWidth = 1; ctx.stroke();
+  // land dots
+  const rot = proj.rotate();
+  const center = [-rot[0], -rot[1]];
+  for (const d of landDots) {
+    const dist = d3.geoDistance(d, center);
+    if (dist > Math.PI / 2) continue;
+    const p = proj(d);
+    const shade = Math.cos(dist);
+    ctx.globalAlpha = a * (.25 + .6 * shade);
+    ctx.fillStyle = shade > .5 ? '#9FB3CF' : '#5E7597';
+    ctx.fillRect(p[0] - 1.6, p[1] - 1.6, 3.2, 3.2);
+  }
+  ctx.globalAlpha = a;
+  // arcs
+  for (const [i, j, st] of arcs) {
+    const p = eIO(prog(t, st, st + 1.1));
+    if (p <= 0) continue;
+    const interp = d3.geoInterpolate(cities[i].c, cities[j].c);
+    const N = 80; const pts = [];
+    for (let k = 0; k <= N * p; k++) pts.push(interp(k / N));
+    // lift arcs off the surface by projecting at a larger radius
+    ctx.beginPath();
+    let started = false;
+    pts.forEach((q, k) => {
+      const hgt = Math.sin(Math.PI * k / N) * .07;
+      const vis = d3.geoDistance(q, center) < Math.PI / 2 - .02;
+      if (!vis) { started = false; return; }
+      const base = proj.scale(R * (1 + hgt))(q);
+      proj.scale(R);
+      if (!started) { ctx.moveTo(...base); started = true; } else ctx.lineTo(...base);
+    });
+    ctx.strokeStyle = C.goldHi; ctx.lineWidth = 2.5;
+    ctx.shadowColor = C.goldHi; ctx.shadowBlur = 16;
+    ctx.stroke(); ctx.shadowBlur = 0;
+  }
+  // city pins
+  for (const c of cities) {
+    const p = eBack(clamp(prog(t, c.t, c.t + .5)));
+    if (p <= 0) continue;
+    const dist = d3.geoDistance(c.c, center);
+    if (dist > Math.PI / 2 - .05) continue;
+    const [x, y] = proj(c.c);
+    const pulse = (t * 1.2 + c.c[0] / 60) % 1;
+    ctx.strokeStyle = `rgba(240,217,164,${(1 - pulse) * .8})`;
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 8 + pulse * (c.hub ? 44 : 26), 0, 6.283); ctx.stroke();
+    ctx.fillStyle = C.goldHi; ctx.shadowColor = C.goldHi; ctx.shadowBlur = 20;
+    ctx.beginPath(); ctx.arc(x, y, (c.hub ? 9 : 6) * p, 0, 6.283); ctx.fill();
+    ctx.shadowBlur = 0;
+    if (!c.small) {
+      font(c.hub ? 30 : 24, SANS, c.hub ? 600 : 500);
+      ctx.fillStyle = c.hub ? C.goldHi : C.ink;
+      ctx.globalAlpha = a * clamp(p);
+      ctx.textAlign = 'left';
+      spaced(c.n.toUpperCase(), x + 22, y - 16, 3, 'left');
+      ctx.globalAlpha = a;
+    }
+  }
+  ctx.restore();
+
+  // left copy
+  ctx.save();
+  const la = win(t, 18.8, 24.6, .6, .5);
+  ctx.globalAlpha = la;
+  font(24, SANS, 500); ctx.fillStyle = C.gold; ctx.textAlign = 'left';
+  spaced('GLOBAL REACH', 150, 330, 10, 'left');
+  font(92, SERIF, 400); ctx.fillStyle = C.ink;
+  revealChars('One firm.', 150, 450, t, 19.0, .03, .5, 40, 'left');
+  ctx.fillStyle = C.goldHi; font(92, SERIF, 400, 'italic');
+  revealChars('Every market.', 150, 560, t, 19.5, .03, .5, 40, 'left');
+  // city ticker
+  font(26, SANS, 400);
+  const list = ['New York', 'London', 'Paris', 'Madrid', 'Hong Kong', 'Tokyo'];
+  list.forEach((n, i) => {
+    const c = cities.find(q => q.n === n);
+    const p = eOut(prog(t, c.t, c.t + .4));
+    ctx.globalAlpha = la * p;
+    ctx.fillStyle = c.hub ? C.goldHi : C.muted;
+    ctx.fillRect(150, 640 + i * 46 - 8, 18 * p, 2);
+    ctx.fillText(n, 185, 640 + i * 46);
+  });
+  ctx.restore();
+}
+
+// ================= SCENE 5: end card (24.6 – 30) =================
+function scene5(t) {
+  if (t < 24.5) return;
+  const a = eOut(prog(t, 24.6, 25.4));
+  // radial burst
+  const bp = prog(t, 24.55, 26.2);
+  if (bp > 0 && bp < 1) {
+    ctx.save();
+    ctx.globalAlpha = (1 - bp) * .6;
+    ctx.strokeStyle = C.goldHi; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(W / 2, 480, 60 + eOut(bp) * 1100, 0, 6.283); ctx.stroke();
+    ctx.restore();
+  }
+  ctx.save();
+  ctx.globalAlpha = a;
+  font(26, SANS, 500); ctx.fillStyle = C.muted;
+  spaced('PJT PARTNERS', W / 2, 300, 14);
+  const s = lerp(.94, 1, eOut(prog(t, 24.6, 27))) + prog(t, 27, 30) * .015;
+  ctx.save(); ctx.translate(W / 2, 500); ctx.scale(s, s);
+  font(190, SERIF, 600); ctx.fillStyle = C.ink; ctx.textAlign = 'center';
+  glowText(() => ctx.fillText('PJT Park Hill', 0, 0), 60, 'rgba(240,217,164,.3)');
+  ctx.restore();
+  goldRule(W / 2, 555, 460, eExpo(prog(t, 25.1, 25.9)));
+  font(64, SERIF, 400, 'italic'); ctx.fillStyle = C.goldHi;
+  ctx.globalAlpha = eOut(prog(t, 25.6, 26.3));
+  ctx.textAlign = 'center';
+  // light sweep across tagline
+  ctx.fillText('Raise with conviction.', W / 2, 660 + (1 - ctx.globalAlpha) * 30);
+  const sw = prog(t, 26.3, 27.3);
+  if (sw > 0 && sw < 1) {
+    ctx.save();
+    ctx.globalCompositeOperation = 'source-atop';
+    const sx = lerp(W / 2 - 500, W / 2 + 500, sw);
+    const lg = ctx.createLinearGradient(sx - 80, 0, sx + 80, 0);
+    lg.addColorStop(0, 'rgba(255,255,255,0)'); lg.addColorStop(.5, 'rgba(255,255,255,.9)'); lg.addColorStop(1, 'rgba(255,255,255,0)');
+    ctx.fillStyle = lg; ctx.fillRect(sx - 80, 590, 160, 100);
+    ctx.restore();
+  }
+  ctx.globalAlpha = eOut(prog(t, 26.4, 27.0));
+  font(26, SANS, 500); ctx.fillStyle = C.ink;
+  spaced('PJTPARTNERS.COM', W / 2, 790, 10);
+  ctx.globalAlpha = eOut(prog(t, 26.8, 27.4)) * .7;
+  font(16, SANS, 400); ctx.fillStyle = C.muted;
+  ctx.fillText('PJT Partners LP is an SEC registered broker-dealer and a member of FINRA and SIPC.', W / 2, 990);
+  ctx.fillText('Figures reflect cumulative PJT Park Hill activity (primary fundraising since 2005; secondaries since 2010) and are shown for illustrative purposes.', W / 2, 1016);
+  ctx.restore();
+}
+
+// ================= render =================
+window.renderAt = function (frame, fps = 30) {
+  const t = frame / fps;
+  ctx.setTransform(1, 0, 0, 1, 0, 0);
+  ctx.globalAlpha = 1; ctx.textBaseline = 'alphabetic';
+  // subtle global camera drift
+  background(t);
+  ctx.save();
+  const drift = Math.sin(t * .35) * 6;
+  ctx.translate(drift, Math.cos(t * .27) * 4);
+  scene1(t); scene2(t); scene3(t); scene4(t); scene5(t);
+  ctx.restore();
+  postFX(t, frame);
+};
+
+window.ready = (async () => {
+  const r = await fetch('node_modules/world-atlas/land-110m.json');
+  window.__LAND__ = await r.json();
+  buildGlobe();
+  await document.fonts.load(`600 100px "Playfair Display"`);
+  await document.fonts.load(`italic 400 100px "Playfair Display"`);
+  await document.fonts.load(`400 100px Inter`);
+  await document.fonts.load(`600 100px Inter`);
+  await document.fonts.ready;
+  return landDots.length;
+})();
+</script>
+</body>
+</html>
